@@ -109,79 +109,95 @@ class Actions:
         self.execute()
 
     def execute(self):
-        if self.file:
-            with open("persons.json") as json_file:
-                data = json.load(json_file)["results"]
+        with db:
+            if self.file:
+                with open("persons.json") as json_file:
+                    data = json.load(json_file)["results"]
+                    self.add_records(data)
+            if self.api:
+                print("connecting...")
+                response = requests.get(
+                    "https://randomuser.me/api/?results=%i" % self.api
+                )
+                data = response.json()["results"]
                 self.add_records(data)
-        if self.api:
-            print("connecting...")
-            response = requests.get("https://randomuser.me/api/?results=%i" % self.api)
-            data = response.json()["results"]
-            self.add_records(data)
-        if self.percent:
-            print("percent")
-        if self.age:
-            print("age")
-        if self.city:
-            print("city")
-        if self.password:
-            print("password")
-        if self.date:
-            print("date")
-        if self.secure:
-            print("secure")
+            if self.percent:
+                self.show_gender_percentage()
+            if self.age:
+                print("age")
+            if self.city:
+                print("city")
+            if self.password:
+                print("password")
+            if self.date:
+                print("date")
+            if self.secure:
+                print("secure")
 
     def add_records(self, data):
         print("adding records...")
-        with db:
-            if not db.table_exists("person"):
-                db.create_tables([Person])
+        if not db.table_exists("person"):
+            db.create_tables([Person])
 
-            today = date.today()
-            for person in data:
-                person_data = Person(
-                    gender=person["gender"],
-                    name_title=person["name"]["title"],
-                    name_first=person["name"]["first"],
-                    name_last=person["name"]["last"],
-                    location_street_number=person["location"]["street"]["number"],
-                    location_street_name=person["location"]["street"]["name"],
-                    location_city=person["location"]["city"],
-                    location_state=person["location"]["state"],
-                    location_country=person["location"]["country"],
-                    location_postcode=person["location"]["postcode"],
-                    location_coordinates_latitude=person["location"]["coordinates"][
-                        "latitude"
-                    ],
-                    location_coordinates_longitude=person["location"]["coordinates"][
-                        "longitude"
-                    ],
-                    location_timezone_offset=person["location"]["timezone"]["offset"],
-                    location_timezone_description=person["location"]["timezone"][
-                        "description"
-                    ],
-                    email=person["email"],
-                    login_uuid=person["login"]["uuid"],
-                    login_username=person["login"]["username"],
-                    login_password=person["login"]["password"],
-                    login_salt=person["login"]["salt"],
-                    login_md5=person["login"]["md5"],
-                    login_sha1=person["login"]["sha1"],
-                    login_sha256=person["login"]["sha256"],
-                    dob_date=person["dob"]["date"],
-                    dob_age=person["dob"]["age"],
-                    dob_next=Actions.days_to_next_birthday(
-                        person["dob"]["date"], today
-                    ),
-                    registered_date=person["registered"]["date"],
-                    registered_age=person["registered"]["age"],
-                    phone=Actions.filter_numbers(person["phone"]),
-                    cell=Actions.filter_numbers(person["cell"]),
-                    id_name=person["id"]["name"],
-                    id_value=person["id"]["value"],
-                    nat=person["nat"],
+        today = date.today()
+        for person in data:
+            person_data = Person(
+                gender=person["gender"],
+                name_title=person["name"]["title"],
+                name_first=person["name"]["first"],
+                name_last=person["name"]["last"],
+                location_street_number=person["location"]["street"]["number"],
+                location_street_name=person["location"]["street"]["name"],
+                location_city=person["location"]["city"],
+                location_state=person["location"]["state"],
+                location_country=person["location"]["country"],
+                location_postcode=person["location"]["postcode"],
+                location_coordinates_latitude=person["location"]["coordinates"][
+                    "latitude"
+                ],
+                location_coordinates_longitude=person["location"]["coordinates"][
+                    "longitude"
+                ],
+                location_timezone_offset=person["location"]["timezone"]["offset"],
+                location_timezone_description=person["location"]["timezone"][
+                    "description"
+                ],
+                email=person["email"],
+                login_uuid=person["login"]["uuid"],
+                login_username=person["login"]["username"],
+                login_password=person["login"]["password"],
+                login_salt=person["login"]["salt"],
+                login_md5=person["login"]["md5"],
+                login_sha1=person["login"]["sha1"],
+                login_sha256=person["login"]["sha256"],
+                dob_date=person["dob"]["date"],
+                dob_age=person["dob"]["age"],
+                dob_next=Actions.days_to_next_birthday(person["dob"]["date"], today),
+                registered_date=person["registered"]["date"],
+                registered_age=person["registered"]["age"],
+                phone=Actions.filter_numbers(person["phone"]),
+                cell=Actions.filter_numbers(person["cell"]),
+                id_name=person["id"]["name"],
+                id_value=person["id"]["value"],
+                nat=person["nat"],
+            )
+            person_data.save()
+
+    def show_gender_percentage(self):
+
+        if db.table_exists("person"):
+            all_count = Person.select().count()
+            if all_count:
+                gender_count = (
+                    Person.select().where(Person.gender == self.percent).count()
                 )
-                person_data.save()
+                percentage = round((gender_count / all_count) * 100, 2)
+                message = "Percentage of {} is {}%".format(self.percent, percentage)
+            else:
+                message = "Add records to database, add -h for help"
+        else:
+            message = "Add records to database, add -h for help"
+        print(message)
 
     @staticmethod
     def days_to_next_birthday(birthday, today):
