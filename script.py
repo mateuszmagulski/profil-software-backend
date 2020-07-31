@@ -1,8 +1,9 @@
 import argparse
 import json
 import requests
+import functools
 
-from datetime import datetime
+from datetime import datetime, date
 from peewee import *
 
 
@@ -136,6 +137,7 @@ class Actions:
             if not db.table_exists("person"):
                 db.create_tables([Person])
 
+            today = date.today()
             for person in data:
                 person_data = Person(
                     gender=person["gender"],
@@ -168,16 +170,49 @@ class Actions:
                     login_sha256=person["login"]["sha256"],
                     dob_date=person["dob"]["date"],
                     dob_age=person["dob"]["age"],
-                    dob_next=person["dob"]["date"],
+                    dob_next=Actions.days_to_next_birthday(
+                        person["dob"]["date"], today
+                    ),
                     registered_date=person["registered"]["date"],
                     registered_age=person["registered"]["age"],
-                    phone=person["phone"],
-                    cell=person["cell"],
+                    phone=Actions.filter_numbers(person["phone"]),
+                    cell=Actions.filter_numbers(person["cell"]),
                     id_name=person["id"]["name"],
                     id_value=person["id"]["value"],
                     nat=person["nat"],
                 )
                 person_data.save()
+
+    @staticmethod
+    def days_to_next_birthday(birthday, today):
+        birthday = datetime.strptime(birthday[:10], "%Y-%m-%d").date()
+        if birthday.day == 29 and birthday.month == 2:
+            leap_year = Actions.next_leap_year(today.year)
+            next_birthday = birthday.replace(
+                year=leap_year
+                if birthday.replace(year=leap_year) >= today
+                else today.year + 4
+            )
+        else:
+            next_birthday = birthday.replace(
+                year=today.year
+                if birthday.replace(year=today.year) >= today
+                else today.year + 1
+            )
+        return (next_birthday - today).days
+
+    @staticmethod
+    def next_leap_year(given_year):
+        leap_year = None
+        while not leap_year:
+            if given_year % 4 == 0 or given_year % 400 == 0 and given_year % 100 == 0:
+                leap_year = given_year
+            given_year = given_year + 1
+        return leap_year
+
+    @staticmethod
+    def filter_numbers(string):
+        return functools.reduce(lambda a, b: a + b if b.isnumeric() else a, string, "")
 
 
 App.parse()
