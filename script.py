@@ -2,8 +2,8 @@ import argparse
 from datetime import datetime
 from peewee import *
 
+
 db = SqliteDatabase("people.db")
-db.connect()
 
 
 class App:
@@ -51,7 +51,7 @@ class App:
         parser.add_argument(
             "-s", "--secure", action="store_true", help="Most secure password"
         )
-        args = parser.parse_args()
+        cls.args = parser.parse_args()
 
 
 class Person(Model):
@@ -93,5 +93,17 @@ class Person(Model):
         database = db
 
 
+class Actions:
+    def __init__(self, arguments):
+        self.age = arguments.age
+        self.api = arguments.api
+        self.city = arguments.city
+        self.date = arguments.date
+        self.file = arguments.file
+        self.password = arguments.password
+        self.percent = arguments.percent
+        self.secure = arguments.secure
+
+
 App.parse()
-db.close()
+actions = Actions(App.args)
