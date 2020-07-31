@@ -124,7 +124,7 @@ class Actions:
             if self.percent:
                 self.show_gender_percentage()
             if self.age:
-                print("age")
+                self.show_average_age()
             if self.city:
                 print("city")
             if self.password:
@@ -185,19 +185,35 @@ class Actions:
 
     def show_gender_percentage(self):
 
-        if db.table_exists("person"):
-            all_count = Person.select().count()
-            if all_count:
-                gender_count = (
-                    Person.select().where(Person.gender == self.percent).count()
-                )
-                percentage = round((gender_count / all_count) * 100, 2)
-                message = "Percentage of {} is {}%".format(self.percent, percentage)
-            else:
-                message = "Add records to database, add -h for help"
+        if not db.table_exists("person"):
+            print("Add records to database, add -h for help")
+            return
+        all_count = Person.select().count()
+        if not all_count:
+            print("Add records to database, add -h for help")
+            return
+        gender_count = Person.select().where(Person.gender == self.percent).count()
+        percentage = round((gender_count / all_count) * 100, 2)
+        print("Percentage of {} is {}%".format(self.percent, percentage))
+
+    def show_average_age(self):
+
+        if not db.table_exists("person"):
+            print("Add records to database, add -h for help")
+            return
+        if self.age == "all":
+            querry = Person.select(Person.dob_age)
         else:
-            message = "Add records to database, add -h for help"
-        print(message)
+            querry = Person.select(Person.dob_age).where(Person.gender == self.age)
+        querry_count = querry.count()
+        if not querry_count:
+            print("Add records to database, add -h for help")
+            return
+        age_sum = 0
+        for person in querry:
+            age_sum += person.dob_age
+        average_age = round(age_sum / querry_count, 2)
+        print("Average age of {} is {}".format(self.age, average_age))
 
     @staticmethod
     def days_to_next_birthday(birthday, today):
