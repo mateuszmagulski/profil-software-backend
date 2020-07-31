@@ -5,7 +5,7 @@ import functools
 
 from datetime import datetime, date
 from peewee import *
-
+from collections import Counter
 
 db = SqliteDatabase("people.db")
 
@@ -126,7 +126,7 @@ class Actions:
             if self.age:
                 self.show_average_age()
             if self.city:
-                print("city")
+                self.show_top_n_cities(self.city)
             if self.password:
                 print("password")
             if self.date:
@@ -202,18 +202,29 @@ class Actions:
             print("Add records to database, add -h for help")
             return
         if self.age == "all":
-            querry = Person.select(Person.dob_age)
+            querry = Person.select(fn.AVG(Person.dob_age))
         else:
-            querry = Person.select(Person.dob_age).where(Person.gender == self.age)
-        querry_count = querry.count()
-        if not querry_count:
+            querry = Person.select(fn.AVG(Person.dob_age)).where(
+                Person.gender == self.age
+            )
+        age_sum = querry.scalar()
+        print("Average age of {} is {}".format(self.age, age_sum))
+
+    def show_top_n_cities(self, n):
+        if not db.table_exists("person"):
             print("Add records to database, add -h for help")
             return
-        age_sum = 0
+        querry = Person.select(Person.location_city)
+        cities_count = {}
         for person in querry:
-            age_sum += person.dob_age
-        average_age = round(age_sum / querry_count, 2)
-        print("Average age of {} is {}".format(self.age, average_age))
+            if person.location_city in cities_count:
+                cities_count[person.location_city] += 1
+            else:
+                cities_count[person.location_city] = 1
+        n_most_common = Counter(cities_count).most_common(n)
+        print("Top {} most common cities:".format(n))
+        for city in n_most_common:
+            print(city[0])
 
     @staticmethod
     def days_to_next_birthday(birthday, today):
