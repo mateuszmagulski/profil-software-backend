@@ -1,4 +1,7 @@
 import argparse
+import json
+import requests
+
 from datetime import datetime
 from peewee import *
 
@@ -33,8 +36,7 @@ class App:
             "-A",
             "--age",
             type=str,
-            choices=["male", "female"],
-            nargs="?",
+            choices=["all", "male", "female"],
             help="Average age of: without argument - all, with 'male'/'female' - one gender",
         )
         parser.add_argument("-C", "--city", type=int, help="The most common N cities")
@@ -103,6 +105,79 @@ class Actions:
         self.password = arguments.password
         self.percent = arguments.percent
         self.secure = arguments.secure
+        self.execute()
+
+    def execute(self):
+        if self.file:
+            with open("persons.json") as json_file:
+                data = json.load(json_file)["results"]
+                self.add_records(data)
+        if self.api:
+            print("connecting...")
+            response = requests.get("https://randomuser.me/api/?results=%i" % self.api)
+            data = response.json()["results"]
+            self.add_records(data)
+        if self.percent:
+            print("percent")
+        if self.age:
+            print("age")
+        if self.city:
+            print("city")
+        if self.password:
+            print("password")
+        if self.date:
+            print("date")
+        if self.secure:
+            print("secure")
+
+    def add_records(self, data):
+        print("adding records...")
+        with db:
+            if not db.table_exists("person"):
+                db.create_tables([Person])
+
+            for person in data:
+                person_data = Person(
+                    gender=person["gender"],
+                    name_title=person["name"]["title"],
+                    name_first=person["name"]["first"],
+                    name_last=person["name"]["last"],
+                    location_street_number=person["location"]["street"]["number"],
+                    location_street_name=person["location"]["street"]["name"],
+                    location_city=person["location"]["city"],
+                    location_state=person["location"]["state"],
+                    location_country=person["location"]["country"],
+                    location_postcode=person["location"]["postcode"],
+                    location_coordinates_latitude=person["location"]["coordinates"][
+                        "latitude"
+                    ],
+                    location_coordinates_longitude=person["location"]["coordinates"][
+                        "longitude"
+                    ],
+                    location_timezone_offset=person["location"]["timezone"]["offset"],
+                    location_timezone_description=person["location"]["timezone"][
+                        "description"
+                    ],
+                    email=person["email"],
+                    login_uuid=person["login"]["uuid"],
+                    login_username=person["login"]["username"],
+                    login_password=person["login"]["password"],
+                    login_salt=person["login"]["salt"],
+                    login_md5=person["login"]["md5"],
+                    login_sha1=person["login"]["sha1"],
+                    login_sha256=person["login"]["sha256"],
+                    dob_date=person["dob"]["date"],
+                    dob_age=person["dob"]["age"],
+                    dob_next=person["dob"]["date"],
+                    registered_date=person["registered"]["date"],
+                    registered_age=person["registered"]["age"],
+                    phone=person["phone"],
+                    cell=person["cell"],
+                    id_name=person["id"]["name"],
+                    id_value=person["id"]["value"],
+                    nat=person["nat"],
+                )
+                person_data.save()
 
 
 App.parse()
