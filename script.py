@@ -38,7 +38,7 @@ class App:
             "--age",
             type=str,
             choices=["all", "male", "female"],
-            help="Average age of: without argument - all, with 'male'/'female' - one gender",
+            help="Average age of: 'all' - all, 'male'/'female' - one gender",
         )
         parser.add_argument("-C", "--city", type=int, help="The most common N cities")
         parser.add_argument(
