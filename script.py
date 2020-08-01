@@ -1,23 +1,25 @@
 import argparse
-import json
-import requests
-import functools
-
-from datetime import datetime, date
-from peewee import *
+from datetime import datetime
 from collections import Counter
+import functools
+import json
+
+from peewee import (
+    SqliteDatabase,
+    Model,
+    CharField,
+    DateField,
+    DateTimeField,
+    IntegerField,
+)
+import requests
 
 db = SqliteDatabase("people.db")
 
 
 class App:
-    @staticmethod
-    def valid_date(date):
-        try:
-            return datetime.strptime(date, "%d-%m-%Y").date()
-        except ValueError:
-            msg = "Not a valid date: {0}".format(date)
-            raise argparse.ArgumentTypeError(msg)
+    def __init__(self):
+        pass
 
     @classmethod
     def parse(cls):
@@ -56,6 +58,14 @@ class App:
         )
         cls.args = parser.parse_args()
 
+    @staticmethod
+    def valid_date(date):
+        try:
+            return datetime.strptime(date, "%d-%m-%Y").date()
+        except ValueError:
+            msg = "Not a valid date: {0}".format(date)
+            raise argparse.ArgumentTypeError(msg)
+
 
 class Person(Model):
 
@@ -81,7 +91,7 @@ class Person(Model):
     login_md5 = CharField()
     login_sha1 = CharField()
     login_sha256 = CharField()
-    dob_date = DateField()
+    dob_date = DateTimeField()
     dob_age = IntegerField()
     dob_next = IntegerField()
     registered_date = DateTimeField()
@@ -111,16 +121,23 @@ class Actions:
     def execute(self):
         with db:
             if self.file:
-                with open("persons.json") as json_file:
-                    data = json.load(json_file)["results"]
-                    self.add_records(data)
+                try:
+                    with open("persons.json") as json_file:
+                        data = json.load(json_file)["results"]
+                        self.add_records(data)
+                except FileNotFoundError as e:
+                    print(e)
             if self.api:
                 print("connecting...")
-                response = requests.get(
-                    "https://randomuser.me/api/?results=%i" % self.api
-                )
-                data = response.json()["results"]
+                try:
+                    response = requests.get(
+                        "https://randomuser.me/api/?results={}".format(self.api)
+                    )
+                    data = response.json()["results"]
+                except:
+                    print("Connection error...")
                 self.add_records(data)
+
             if self.percent:
                 self.show_gender_percentage()
             if self.age:
@@ -138,51 +155,24 @@ class Actions:
         print("adding records...")
         if not db.table_exists("person"):
             db.create_tables([Person])
-
-        today = date.today()
+        today = datetime.now()
         for person in data:
-            birthday = datetime.strptime(person["dob"]["date"][:10], "%Y-%m-%d").date()
-            person_data = Person(
-                gender=person["gender"],
-                name_title=person["name"]["title"],
-                name_first=person["name"]["first"],
-                name_last=person["name"]["last"],
-                location_street_number=person["location"]["street"]["number"],
-                location_street_name=person["location"]["street"]["name"],
-                location_city=person["location"]["city"],
-                location_state=person["location"]["state"],
-                location_country=person["location"]["country"],
-                location_postcode=person["location"]["postcode"],
-                location_coordinates_latitude=person["location"]["coordinates"][
-                    "latitude"
-                ],
-                location_coordinates_longitude=person["location"]["coordinates"][
-                    "longitude"
-                ],
-                location_timezone_offset=person["location"]["timezone"]["offset"],
-                location_timezone_description=person["location"]["timezone"][
-                    "description"
-                ],
-                email=person["email"],
-                login_uuid=person["login"]["uuid"],
-                login_username=person["login"]["username"],
-                login_password=person["login"]["password"],
-                login_salt=person["login"]["salt"],
-                login_md5=person["login"]["md5"],
-                login_sha1=person["login"]["sha1"],
-                login_sha256=person["login"]["sha256"],
-                dob_date=birthday,
-                dob_age=person["dob"]["age"],
-                dob_next=Actions.days_to_next_birthday(birthday, today),
-                registered_date=person["registered"]["date"],
-                registered_age=person["registered"]["age"],
-                phone=Actions.filter_numbers(person["phone"]),
-                cell=Actions.filter_numbers(person["cell"]),
-                id_name=person["id"]["name"],
-                id_value=person["id"]["value"],
-                nat=person["nat"],
-            )
-            person_data.save()
+            birthday = datetime.strptime(person["dob"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            del person["picture"]
+            person
+            person["cell"] = Actions.filter_numbers(person["cell"])
+            person["phone"] = Actions.filter_numbers(person["phone"])
+            keys_to_delete = []
+            keys_to_add = [("dob_next", Actions.days_to_next_birthday(birthday, today))]
+            for key, value in person.items():
+                if type(value) == dict:
+                    keys_to_add = keys_to_add + Actions.flattening_data(key, value)
+                    keys_to_delete.append(key)
+            for key in keys_to_delete:
+                del person[key]
+            for key, value in keys_to_add:
+                person[key] = value
+        Person.insert_many(data).execute()
 
     def show_gender_percentage(self):
 
@@ -267,6 +257,18 @@ class Actions:
                 top_rank = current_rank
 
         print("Most secure password: {}".format(top_rank[0]))
+
+    @staticmethod
+    def flattening_data(key, value):
+        result = []
+        if type(value) == dict:
+            for nested_key, nested_value in value.items():
+                result = result + Actions.flattening_data(
+                    "{}_{}".format(key, nested_key), nested_value
+                )
+        else:
+            result.append((key, value))
+        return result
 
     @staticmethod
     def rate_password(password):
