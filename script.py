@@ -14,7 +14,7 @@ class App:
     @staticmethod
     def valid_date(date):
         try:
-            return datetime.strptime(date, "%d-%m-%Y")
+            return datetime.strptime(date, "%d-%m-%Y").date()
         except ValueError:
             msg = "Not a valid date: {0}".format(date)
             raise argparse.ArgumentTypeError(msg)
@@ -81,7 +81,7 @@ class Person(Model):
     login_md5 = CharField()
     login_sha1 = CharField()
     login_sha256 = CharField()
-    dob_date = DateTimeField()
+    dob_date = DateField()
     dob_age = IntegerField()
     dob_next = IntegerField()
     registered_date = DateTimeField()
@@ -126,11 +126,11 @@ class Actions:
             if self.age:
                 self.show_average_age()
             if self.city:
-                self.show_top_n_cities(self.city)
+                self.show_top_n_cities()
             if self.password:
-                print("password")
+                self.show_top_n_passwords()
             if self.date:
-                print("date")
+                self.show_people_in_range()
             if self.secure:
                 print("secure")
 
@@ -141,6 +141,7 @@ class Actions:
 
         today = date.today()
         for person in data:
+            birthday = datetime.strptime(person["dob"]["date"][:10], "%Y-%m-%d").date()
             person_data = Person(
                 gender=person["gender"],
                 name_title=person["name"]["title"],
@@ -170,9 +171,9 @@ class Actions:
                 login_md5=person["login"]["md5"],
                 login_sha1=person["login"]["sha1"],
                 login_sha256=person["login"]["sha256"],
-                dob_date=person["dob"]["date"],
+                dob_date=birthday,
                 dob_age=person["dob"]["age"],
-                dob_next=Actions.days_to_next_birthday(person["dob"]["date"], today),
+                dob_next=Actions.days_to_next_birthday(birthday, today),
                 registered_date=person["registered"]["date"],
                 registered_age=person["registered"]["age"],
                 phone=Actions.filter_numbers(person["phone"]),
@@ -210,7 +211,7 @@ class Actions:
         age_sum = querry.scalar()
         print("Average age of {} is {}".format(self.age, age_sum))
 
-    def show_top_n_cities(self, n):
+    def show_top_n_cities(self):
         if not db.table_exists("person"):
             print("Add records to database, add -h for help")
             return
@@ -221,14 +222,39 @@ class Actions:
                 cities_count[person.location_city] += 1
             else:
                 cities_count[person.location_city] = 1
-        n_most_common = Counter(cities_count).most_common(n)
-        print("Top {} most common cities:".format(n))
+        n_most_common = Counter(cities_count).most_common(self.city)
+        print("Top {} most common cities:".format(self.city))
         for city in n_most_common:
             print(city[0])
 
+    def show_top_n_passwords(self):
+        if not db.table_exists("person"):
+            print("Add records to database, add -h for help")
+            return
+        querry = Person.select(Person.login_password)
+        password_count = {}
+        for person in querry:
+            if person.login_password in password_count:
+                password_count[person.login_password] += 1
+            else:
+                password_count[person.login_password] = 1
+        n_most_common = Counter(password_count).most_common(self.password)
+        print("Top {} most common passwords:".format(self.password))
+        for password in n_most_common:
+            print("{}, {}".format(password[0], password[1]))
+
+    def show_people_in_range(self):
+        if not db.table_exists("person"):
+            print("Add records to database, add -h for help")
+            return
+        querry = Person.select(
+            Person.name_first, Person.name_last, Person.dob_date
+        ).where((Person.dob_date >= self.date[0]) & (Person.dob_date <= self.date[1]))
+        for person in querry:
+            print(person.name_first, person.name_last)
+
     @staticmethod
     def days_to_next_birthday(birthday, today):
-        birthday = datetime.strptime(birthday[:10], "%Y-%m-%d").date()
         if birthday.day == 29 and birthday.month == 2:
             leap_year = Actions.next_leap_year(today.year)
             next_birthday = birthday.replace(
