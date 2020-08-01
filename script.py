@@ -132,7 +132,7 @@ class Actions:
             if self.date:
                 self.show_people_in_range()
             if self.secure:
-                print("secure")
+                self.show_most_secure_password()
 
     def add_records(self, data):
         print("adding records...")
@@ -252,6 +252,36 @@ class Actions:
         ).where((Person.dob_date >= self.date[0]) & (Person.dob_date <= self.date[1]))
         for person in querry:
             print(person.name_first, person.name_last)
+
+    def show_most_secure_password(self):
+        if not db.table_exists("person"):
+            print("Add records to database, add -h for help")
+            return
+        querry = Person.select(Person.login_password)
+
+        top_rank = ("", 0)
+
+        for person in querry:
+            current_rank = Actions.rate_password(person.login_password)
+            if current_rank[1] > top_rank[1]:
+                top_rank = current_rank
+
+        print("Most secure password: {}".format(top_rank[0]))
+
+    @staticmethod
+    def rate_password(password):
+        rate = 0
+        if any(x.islower() for x in password):
+            rate += 1
+        if any(x.isupper() for x in password):
+            rate += 2
+        if any(x.isdigit() for x in password):
+            rate += 1
+        if any(not x.isalnum() for x in password):
+            rate += 3
+        if len(password) >= 8:
+            rate += 5
+        return (password, rate)
 
     @staticmethod
     def days_to_next_birthday(birthday, today):
