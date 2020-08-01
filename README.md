@@ -63,9 +63,9 @@ or
 ```bash
 python3 script.py --age [all, male or female]
 ```
-* -C or --city with one numeric argument: show N most common cities
+* -c or --city with one numeric argument: show N most common cities
 ```bash
-python3 script.py -C [N]
+python3 script.py -c [N]
 ```
 or
 ```bash

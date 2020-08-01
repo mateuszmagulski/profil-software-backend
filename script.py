@@ -3,6 +3,7 @@ from datetime import datetime
 from collections import Counter
 import functools
 import json
+import sys
 
 from peewee import (
     SqliteDatabase,
@@ -11,6 +12,7 @@ from peewee import (
     DateField,
     DateTimeField,
     IntegerField,
+    fn,
 )
 import requests
 
@@ -42,7 +44,7 @@ class App:
             choices=["all", "male", "female"],
             help="Average age of: 'all' - all, 'male'/'female' - one gender",
         )
-        parser.add_argument("-C", "--city", type=int, help="The most common N cities")
+        parser.add_argument("-c", "--city", type=int, help="The most common N cities")
         parser.add_argument(
             "-P", "--password", type=int, help="The most common N passwords"
         )
@@ -139,124 +141,114 @@ class Actions:
                 self.add_records(data)
 
             if self.percent:
-                self.show_gender_percentage()
+                print(
+                    "Percentage of {} is {}%".format(
+                        self.percent, self.gender_percentage()
+                    )
+                )
             if self.age:
-                self.show_average_age()
+                print("Average age of {} is {}".format(self.age, self.average_age()))
             if self.city:
-                self.show_top_n_cities()
+                print("Top {} most common cities:".format(self.city))
+                for city in self.n_most_common_cities():
+                    print(city[0])
             if self.password:
-                self.show_top_n_passwords()
+                print("Top {} most common passwords:".format(self.password))
+                for password in self.n_most_common_passwords():
+                    print("{}, {}".format(password[0], password[1]))
             if self.date:
-                self.show_people_in_range()
+                for person in self.people_in_range():
+                    print(person[0], person[1])
             if self.secure:
-                self.show_most_secure_password()
+                print("Most secure password: {}".format(self.most_secure_password()))
 
     def add_records(self, data):
         print("adding records...")
-        if not db.table_exists("person"):
-            db.create_tables([Person])
-        today = datetime.now()
-        for person in data:
-            birthday = datetime.strptime(person["dob"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ")
-            del person["picture"]
-            person
-            person["cell"] = Actions.filter_numbers(person["cell"])
-            person["phone"] = Actions.filter_numbers(person["phone"])
-            keys_to_delete = []
-            keys_to_add = [("dob_next", Actions.days_to_next_birthday(birthday, today))]
-            for key, value in person.items():
-                if type(value) == dict:
-                    keys_to_add = keys_to_add + Actions.flattening_data(key, value)
-                    keys_to_delete.append(key)
-            for key in keys_to_delete:
-                del person[key]
-            for key, value in keys_to_add:
-                person[key] = value
-        Person.insert_many(data).execute()
+        try:
+            if not db.table_exists("person"):
+                db.create_tables([Person])
+            today = datetime.now()
+            for person in data:
+                birthday = datetime.strptime(
+                    person["dob"]["date"], "%Y-%m-%dT%H:%M:%S.%fZ"
+                )
+                del person["picture"]
+                person
+                person["cell"] = Actions.filter_numbers(person["cell"])
+                person["phone"] = Actions.filter_numbers(person["phone"])
+                keys_to_delete = []
+                keys_to_add = [
+                    ("dob_next", Actions.days_to_next_birthday(birthday, today))
+                ]
+                for key, value in person.items():
+                    if type(value) == dict:
+                        keys_to_add = keys_to_add + Actions.flattening_data(key, value)
+                        keys_to_delete.append(key)
+                for key in keys_to_delete:
+                    del person[key]
+                for key, value in keys_to_add:
+                    person[key] = value
+            Person.insert_many(data).execute()
+        except:
+            print("wrong data format...")
 
-    def show_gender_percentage(self):
-
-        if not db.table_exists("person"):
+    def gender_percentage(self):
+        Actions.table_exists()
+        try:
+            all_count = Person.select().count()
+            gender_count = Person.select().where(Person.gender == self.percent).count()
+            return round((gender_count / all_count) * 100, 2)
+        except:
             print("Add records to database, add -h for help")
-            return
-        all_count = Person.select().count()
-        if not all_count:
-            print("Add records to database, add -h for help")
-            return
-        gender_count = Person.select().where(Person.gender == self.percent).count()
-        percentage = round((gender_count / all_count) * 100, 2)
-        print("Percentage of {} is {}%".format(self.percent, percentage))
 
-    def show_average_age(self):
-
-        if not db.table_exists("person"):
-            print("Add records to database, add -h for help")
-            return
+    def average_age(self):
+        Actions.table_exists()
         if self.age == "all":
             querry = Person.select(fn.AVG(Person.dob_age))
         else:
             querry = Person.select(fn.AVG(Person.dob_age)).where(
                 Person.gender == self.age
             )
-        age_sum = querry.scalar()
-        print("Average age of {} is {}".format(self.age, age_sum))
+        return querry.scalar()
 
-    def show_top_n_cities(self):
-        if not db.table_exists("person"):
-            print("Add records to database, add -h for help")
-            return
+    def n_most_common_cities(self):
+        Actions.table_exists()
         querry = Person.select(Person.location_city)
-        cities_count = {}
+        cities = {}
         for person in querry:
-            if person.location_city in cities_count:
-                cities_count[person.location_city] += 1
+            if person.location_city in cities:
+                cities[person.location_city] += 1
             else:
-                cities_count[person.location_city] = 1
-        n_most_common = Counter(cities_count).most_common(self.city)
-        print("Top {} most common cities:".format(self.city))
-        for city in n_most_common:
-            print(city[0])
+                cities[person.location_city] = 1
+        return Counter(cities).most_common(self.city)
 
-    def show_top_n_passwords(self):
-        if not db.table_exists("person"):
-            print("Add records to database, add -h for help")
-            return
+    def n_most_common_passwords(self):
+        Actions.table_exists()
         querry = Person.select(Person.login_password)
-        password_count = {}
+        passwords = {}
         for person in querry:
-            if person.login_password in password_count:
-                password_count[person.login_password] += 1
+            if person.login_password in passwords:
+                passwords[person.login_password] += 1
             else:
-                password_count[person.login_password] = 1
-        n_most_common = Counter(password_count).most_common(self.password)
-        print("Top {} most common passwords:".format(self.password))
-        for password in n_most_common:
-            print("{}, {}".format(password[0], password[1]))
+                passwords[person.login_password] = 1
+        return Counter(passwords).most_common(self.password)
 
-    def show_people_in_range(self):
-        if not db.table_exists("person"):
-            print("Add records to database, add -h for help")
-            return
+    def people_in_range(self):
+        Actions.table_exists()
         querry = Person.select(
             Person.name_first, Person.name_last, Person.dob_date
         ).where((Person.dob_date >= self.date[0]) & (Person.dob_date <= self.date[1]))
-        for person in querry:
-            print(person.name_first, person.name_last)
+        return [(person.name_first, person.name_last) for person in querry]
 
-    def show_most_secure_password(self):
-        if not db.table_exists("person"):
-            print("Add records to database, add -h for help")
-            return
+    def most_secure_password(self):
+        Actions.table_exists()
         querry = Person.select(Person.login_password)
-
         top_rank = ("", 0)
-
         for person in querry:
-            current_rank = Actions.rate_password(person.login_password)
-            if current_rank[1] > top_rank[1]:
-                top_rank = current_rank
-
-        print("Most secure password: {}".format(top_rank[0]))
+            password_rank = Actions.rate_password(person.login_password)
+            if password_rank[1] > top_rank[1]:
+                top_rank = password_rank
+        return top_rank[0]
 
     @staticmethod
     def flattening_data(key, value):
@@ -314,6 +306,11 @@ class Actions:
     @staticmethod
     def filter_numbers(string):
         return functools.reduce(lambda a, b: a + b if b.isnumeric() else a, string, "")
+
+    @staticmethod
+    def table_exists():
+        if not db.table_exists("person"):
+            sys.exit("Add records to database, add -h for help")
 
 
 App.parse()
