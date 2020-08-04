@@ -26,9 +26,7 @@ You can use script with flags:
 * -h or --help: show help message and exit
 ```bash
 python3 script.py -h 
-```
 or
-```bash
 python3 script.py --help
 ```
 * -f or --file: add records from file ```persons.json```
