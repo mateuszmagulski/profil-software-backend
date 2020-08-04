@@ -101,3 +101,10 @@ or
 ```bash
 python3 script.py --secure
 ```
+# Tests
+
+To run tests:
+
+```bash
+python3 tests.py
+```

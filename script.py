@@ -118,7 +118,6 @@ class Actions:
         self.password = arguments.password
         self.percent = arguments.percent
         self.secure = arguments.secure
-        self.execute()
 
     def execute(self):
         with db:
@@ -130,12 +129,12 @@ class Actions:
                 except FileNotFoundError as e:
                     print(e)
             if self.api:
-                print("connecting...")
                 try:
                     response = requests.get(
                         "https://randomuser.me/api/?results={}".format(self.api)
                     )
                     data = response.json()["results"]
+                    print(data)
                 except:
                     print("Connection error...")
                 self.add_records(data)
@@ -163,10 +162,7 @@ class Actions:
                 print("Most secure password: {}".format(self.most_secure_password()))
 
     def add_records(self, data):
-        print("adding records...")
         try:
-            if not db.table_exists("person"):
-                db.create_tables([Person])
             today = datetime.now()
             for person in data:
                 birthday = datetime.strptime(
@@ -193,7 +189,6 @@ class Actions:
             print("wrong data format...")
 
     def gender_percentage(self):
-        Actions.table_exists()
         try:
             all_count = Person.select().count()
             gender_count = Person.select().where(Person.gender == self.percent).count()
@@ -202,7 +197,6 @@ class Actions:
             print("Add records to database, add -h for help")
 
     def average_age(self):
-        Actions.table_exists()
         if self.age == "all":
             querry = Person.select(fn.AVG(Person.dob_age))
         else:
@@ -212,7 +206,6 @@ class Actions:
         return querry.scalar()
 
     def n_most_common_cities(self):
-        Actions.table_exists()
         querry = Person.select(Person.location_city)
         cities = {}
         for person in querry:
@@ -223,7 +216,6 @@ class Actions:
         return Counter(cities).most_common(self.city)
 
     def n_most_common_passwords(self):
-        Actions.table_exists()
         querry = Person.select(Person.login_password)
         passwords = {}
         for person in querry:
@@ -234,14 +226,12 @@ class Actions:
         return Counter(passwords).most_common(self.password)
 
     def people_in_range(self):
-        Actions.table_exists()
         querry = Person.select(
             Person.name_first, Person.name_last, Person.dob_date
         ).where((Person.dob_date >= self.date[0]) & (Person.dob_date <= self.date[1]))
         return [(person.name_first, person.name_last) for person in querry]
 
     def most_secure_password(self):
-        Actions.table_exists()
         querry = Person.select(Person.login_password)
         top_rank = ("", 0)
         for person in querry:
@@ -307,11 +297,11 @@ class Actions:
     def filter_numbers(string):
         return functools.reduce(lambda a, b: a + b if b.isnumeric() else a, string, "")
 
-    @staticmethod
-    def table_exists():
-        if not db.table_exists("person"):
-            sys.exit("Add records to database, add -h for help")
 
+if __name__ == "__main__":
+    if not db.table_exists("person"):
+        db.create_tables([Person])
+    App.parse()
+    actions = Actions(App.args)
+    actions.execute()
 
-App.parse()
-actions = Actions(App.args)
