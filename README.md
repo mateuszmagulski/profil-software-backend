@@ -32,57 +32,43 @@ python3 script.py --help
 * -f or --file: add records from file ```persons.json```
 ```bash
 python3 script.py -f
-```
 or
-```bash
 python3 script.py --file
 ```
 * -a or --api with one numeric argument: add N records from API - ```https://randomuser.me/```
 ```bash
 python3 script.py -a [N]
-```
 or
-```bash
 python3 script.py --api [N]
 ```
 * -p or --percent with one argument 'male' or 'female': show percentage of one gender, male or female
 ```bash
 python3 script.py -p [male or female]
-```
 or
-```bash
 python3 script.py --percent [male or female]
 ```
 * -A or --age with one argument 'all', 'male' or 'female': show average age of all/male/female
 ```bash
 python3 script.py -A [all, male or female]
-```
 or
-```bash
 python3 script.py --age [all, male or female]
 ```
 * -c or --city with one numeric argument: show N most common cities
 ```bash
 python3 script.py -c [N]
-```
 or
-```bash
 python3 script.py --city [N]
 ```
 * -P or --password with one numeric argument: show N most common passwords and number of appearances
 ```bash
 python3 script.py -P [N]
-```
 or
-```bash
 python3 script.py --password [N]
 ```
 * -d or --date with two arguments in format dd-mm-yyyy: show people born between this dates, first date - start, second - end of range
 ```bash
 python3 script.py -d [dd-mm-yyyy] [dd-mm-yyyy]
-```
 or
-```bash
 python3 script.py --date [dd-mm-yyyy] [dd-mm-yyyy]
 ```
 * -s or --secure: show one most secure password: 
@@ -94,9 +80,7 @@ passwords get rank (sum of points) depending on:
 - at least 8 characters long: 5 points
 ```bash
 python3 script.py -s
-```
 or
-```bash
 python3 script.py --secure
 ```
 # Tests
