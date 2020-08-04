@@ -134,7 +134,6 @@ class Actions:
                         "https://randomuser.me/api/?results={}".format(self.api)
                     )
                     data = response.json()["results"]
-                    print(data)
                 except:
                     print("Connection error...")
                 self.add_records(data)
@@ -156,6 +155,9 @@ class Actions:
                 for password in self.n_most_common_passwords():
                     print("{}, {}".format(password[0], password[1]))
             if self.date:
+                print(
+                    "People born between: {} and {}".format(self.date[0], self.date[1])
+                )
                 for person in self.people_in_range():
                     print(person[0], person[1])
             if self.secure:
